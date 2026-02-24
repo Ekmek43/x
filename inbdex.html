@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Gerçeğini Tercih Edenlere...</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050505; color: white; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let w, h;
+    
+    function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    const colorPink = "#E91E63"; 
+    const colorPurple = "#9C27B0";
+    let globalAlphaText = 0;
+
+    class Plant {
+        constructor(x, isGrass = false) {
+            this.x = x;
+            this.groundY = h;
+            this.isGrass = isGrass;
+            this.maxHeight = isGrass ? 15 + Math.random() * 25 : h * 0.15 + Math.random() * 200;
+            this.currentHeight = 0;
+            this.bloomSize = 0;
+            this.maxBloomSize = 25 + Math.random() * 35;
+            this.color = isGrass ? "#1e3d19" : (Math.random() > 0.5 ? colorPink : colorPurple);
+            this.growthSpeed = 1 + Math.random() * 1.5;
+            this.sparkleAlpha = Math.random();
+            this.sparkleDir = 0.01 + Math.random() * 0.02;
+            // Çakışma kontrolü için yarıçap (sadece çiçekler)
+            this.collisionRadius = this.isGrass ? 5 : this.maxBloomSize * 0.8;
+        }
+        update() {
+            if (this.currentHeight < this.maxHeight) this.currentHeight += this.growthSpeed;
+            else if (!this.isGrass && this.bloomSize < this.maxBloomSize) this.bloomSize += 0.3;
+            
+            this.sparkleAlpha += this.sparkleDir;
+            if (this.sparkleAlpha > 1 || this.sparkleAlpha < 0) this.sparkleDir *= -1;
+        }
+        draw() {
+            const y = this.groundY - this.currentHeight;
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.groundY);
+            ctx.quadraticCurveTo(this.x + (Math.random()-0.5)*10, this.groundY - this.currentHeight/1.5, this.x, y);
+            ctx.strokeStyle = this.isGrass ? this.color : "#2a1a2a";
+            ctx.lineWidth = this.isGrass ? 1 : 2;
+            ctx.stroke();
+
+            if (!this.isGrass && this.currentHeight > 30) {
+                ctx.save();
+                ctx.translate(this.x, y);
+                ctx.shadowBlur = 15 * this.sparkleAlpha;
+                ctx.shadowColor = this.color;
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = 0.5 + this.sparkleAlpha * 0.5;
+                
+                for (let i = 0; i < 9; i++) {
+                    ctx.beginPath(); ctx.moveTo(0, 0);
+                    ctx.bezierCurveTo(-this.bloomSize/2.5, -this.bloomSize*1.2, this.bloomSize/2.5, -this.bloomSize*1.2, 0, 0);
+                    ctx.fill(); ctx.rotate((Math.PI * 2) / 9);
+                }
+                ctx.beginPath(); ctx.arc(0,0, this.bloomSize/10, 0, Math.PI*2); ctx.fillStyle="white"; ctx.fill();
+                ctx.restore();
+            }
+        }
+    }
+
+    const plants = [];
+
+    // Çakışma Kontrol Fonksiyonu
+    function isColliding(x, radius, existingPlants) {
+        for (const plant of existingPlants) {
+            if (plant.isGrass) continue; // Çimlerle çakışmayı önemseme
+            const dx = x - plant.x;
+            // Sadece yatay mesafeyi kontrol ediyoruz
+            if (Math.abs(dx) < radius + plant.collisionRadius) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function init() {
+        plants.length = 0;
+        // Sol taraf çiçekleri
+        for (let i = 0; i < 25; i++) {
+            let x, attempts = 0;
+            do {
+                x = Math.random() * w * 0.4;
+                attempts++;
+            } while (isColliding(x, 30, plants) && attempts < 50);
+            if(attempts < 50) plants.push(new Plant(x));
+        }
+
+        // Sağ taraf çiçekleri
+        for (let i = 0; i < 25; i++) {
+            let x, attempts = 0;
+            do {
+                x = w * 0.6 + Math.random() * w * 0.4;
+                attempts++;
+            } while (isColliding(x, 30, plants) && attempts < 50);
+            if(attempts < 50) plants.push(new Plant(x));
+        }
+
+        // Çimler (Daha fazla ve rastgele)
+        for(let i=0; i<100; i++) plants.push(new Plant(Math.random()*w, true));
+    }
+
+    function drawText() {
+        globalAlphaText += 0.02;
+        const pulse = (Math.sin(globalAlphaText) + 1) / 2;
+        const centerY = h / 2;
+
+        ctx.save();
+        ctx.textAlign = "center";
+        
+        // Ana Başlık
+        ctx.font = "bold 42px sans-serif";
+        ctx.shadowBlur = 20 * pulse;
+        ctx.shadowColor = colorPink;
+        ctx.fillStyle = "white";
+        ctx.fillText("Gerçeğini Tercih Edenlere...", w / 2, centerY - 80);
+
+        // Alt Metin
+        ctx.font = "300 24px sans-serif";
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = colorPurple;
+        ctx.fillStyle = "#e0e0e0";
+
+        const line1 = "Sanal değil gerçek çiçeği tercih ederim demiştin";
+        const line2 = "İki oldu şuan sanaldan çiçeğini veriyorum izin ver bu haftasonu gerçeğini vereyim ?🌷";
+
+        ctx.fillText(line1, w / 2, centerY - 10);
+        ctx.fillText(line2, w / 2, centerY + 30);
+
+        ctx.restore();
+    }
+
+    function animate() {
+        ctx.fillStyle = "rgba(10, 5, 15, 0.3)";
+        ctx.fillRect(0, 0, w, h);
+        plants.forEach(p => { p.update(); p.draw(); });
+        drawText();
+        requestAnimationFrame(animate);
+    }
+
+    init();
+    animate();
+    window.addEventListener('resize', () => { resize(); init(); });
+</script>
+</body>
+</html>
